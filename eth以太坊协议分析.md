@@ -185,7 +185,7 @@ ApiBackend 定义在 api_backend.go文件中。 封装了一些函数。
 
 New方法中除了core中的一些方法， 有一个ProtocolManager的对象在以太坊协议中比较重要， 以太坊本来是一个协议。ProtocolManager中又可以管理多个以太坊的子协议。
 
-	
+
 	// NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 	// with the ethereum network.
 	func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
@@ -433,7 +433,7 @@ Ethereum服务在创建之后，会被调用服务的Start方法。下面我们�
 
 handle方法,
 
-	
+
 	// handle is the callback invoked to manage the life cycle of an eth peer. When
 	// this function terminates, the peer is disconnected.
 	// handle是一个回调方法，用来管理eth的peer的生命周期管理。 当这个方法退出的时候，peer的连接也会断开。
@@ -1115,7 +1115,7 @@ txsyncLoop负责把pending的交易发送给新建立的连接。
 	// connection. When a new peer appears, we relay all currently pending
 	// transactions. In order to minimise egress bandwidth usage, we send
 	// the transactions in small packs to one peer at a time.
-
+	
 	txsyncLoop负责每个新连接的初始事务同步。 当新的对等体出现时，我们转发所有当前待处理的事务。 为了最小化出口带宽使用，我们一次将一个小包中的事务发送给一个对等体。
 	func (pm *ProtocolManager) txsyncLoop() {
 		var (

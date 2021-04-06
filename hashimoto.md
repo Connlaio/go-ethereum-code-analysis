@@ -1,4 +1,4 @@
-Hashimoto :I/O bound proof of work
+# Hashimoto :I/O bound proof of work
 
 
 Abstract: Using a cryptographic hash function not as a proofofwork by itself, but
@@ -98,8 +98,8 @@ Hash_output_A can be used to select many transactions from the shared blockchain
 hash_output_a可用于从共享区块链中选择多个事务，然后将其用作第二个散列的输入。 而不是组织交易成块，为此目的是顺序组织所有交易更简单。 例如，第815个区块的第47个交易可能被称为交易141,918。 我们将使用64个交易，尽管更高和更低的数字可以工作，具有不同的访问属性。 我们定义以下功能：
 
 - nonce 64­bits. A new nonce is created for each attempt.
-- get_txid(T) return the txid (a hash ofa transaction) of transaction number T from block B.
-- block_height the current height ofthe block chain, which increases at each new block
+- get_txid(T) return the tx id (a hash of a transaction) of transaction number T from block B.
+- block_height the current height of the block chain, which increases at each new block
 
 - nonce 64­bits. 每次尝试会生成一个新的nonce值.
 - get_txid(T) 从block B中通过交易序号来获取交易id

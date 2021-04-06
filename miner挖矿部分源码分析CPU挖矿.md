@@ -3,6 +3,7 @@ agent 是具体执行挖矿的对象。 它执行的流程就是，接受计算�
 
 构造CpuAgent, 一般情况下不会使用CPU来进行挖矿，一般来说挖矿都是使用的专门的GPU进行挖矿， GPU挖矿的代码不会在这里体现。
 
+```go
 	type CpuAgent struct {
 		mu sync.Mutex
 	
@@ -26,15 +27,17 @@ agent 是具体执行挖矿的对象。 它执行的流程就是，接受计算�
 		}
 		return miner
 	}
+```
 
 设置返回值channel和得到Work的channel， 方便外界传值和得到返回信息。
-
+```go
 	func (self *CpuAgent) Work() chan<- *Work            { return self.workCh }
 	func (self *CpuAgent) SetReturnCh(ch chan<- *Result) { self.returnCh = ch }
+```
 
 启动和消息循环，如果已经启动挖矿，那么直接退出， 否则启动update 这个goroutine
 update 从workCh接受任务，进行挖矿，或者是接受退出信息，退出。
-	
+```go	
 	func (self *CpuAgent) Start() {
 		if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
 			return // agent already started
@@ -65,9 +68,9 @@ update 从workCh接受任务，进行挖矿，或者是接受退出信息，退�
 			}
 		}
 	}
-
+```
 mine, 挖矿，调用一致性引擎进行挖矿， 如果挖矿成功，把消息发送到returnCh上面。
-	
+```go
 	func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 		if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
 			log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
@@ -79,21 +82,23 @@ mine, 挖矿，调用一致性引擎进行挖矿， 如果挖矿成功，把消�
 			self.returnCh <- nil
 		}
 	}
-GetHashRate， 这个函数返回当前的HashRate。
+```
 
+GetHashRate， 这个函数返回当前的HashRate。
+```go
 	func (self *CpuAgent) GetHashRate() int64 {
 		if pow, ok := self.engine.(consensus.PoW); ok {
 			return int64(pow.Hashrate())
 		}
 		return 0
 	}
-
+```
 
 ## remote_agent
 remote_agent 提供了一套RPC接口，可以实现远程矿工进行采矿的功能。 比如我有一个矿机，矿机内部没有运行以太坊节点，矿机首先从remote_agent获取当前的任务，然后进行挖矿计算，当挖矿完成后，提交计算结果，完成挖矿。 
 
 数据结构和构造
-
+```go
 	type RemoteAgent struct {
 		mu sync.Mutex
 	
@@ -120,9 +125,9 @@ remote_agent 提供了一套RPC接口，可以实现远程矿工进行采矿的�
 			hashrate: make(map[common.Hash]hashrate),
 		}
 	}
-
+​```go
 启动和停止
-	
+​```go	
 	func (a *RemoteAgent) Start() {
 		if !atomic.CompareAndSwapInt32(&a.running, 0, 1) {
 			return
@@ -139,8 +144,10 @@ remote_agent 提供了一套RPC接口，可以实现远程矿工进行采矿的�
 		close(a.quitCh)
 		close(a.workCh)
 	}
-得到输入输出的channel，这个和agent.go一样。
+```
 
+得到输入输出的channel，这个和agent.go一样。
+```go
 	func (a *RemoteAgent) Work() chan<- *Work {
 		return a.workCh
 	}
@@ -148,9 +155,10 @@ remote_agent 提供了一套RPC接口，可以实现远程矿工进行采矿的�
 	func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
 		a.returnCh = returnCh
 	}
+```
 
 loop方法,和agent.go里面做的工作比较类似， 当接收到任务的时候，就存放在currentWork字段里面。 如果84秒还没有完成一个工作，那么就删除这个工作， 如果10秒没有收到hashrate的报告，那么删除这个追踪/。
-	
+```go	
 	// loop monitors mining events on the work and quit channels, updating the internal
 	// state of the rmeote miner until a termination is requested.
 	//
@@ -189,9 +197,10 @@ loop方法,和agent.go里面做的工作比较类似， 当接收到任务的时
 			}
 		}
 	}
+```
 
 GetWork，这个方法由远程矿工调用，获取当前的挖矿任务。
-	
+```go	
 	func (a *RemoteAgent) GetWork() ([3]string, error) {
 		a.mu.Lock()
 		defer a.mu.Unlock()
@@ -216,9 +225,10 @@ GetWork，这个方法由远程矿工调用，获取当前的挖矿任务。
 		}
 		return res, errors.New("No work available yet, don't panic.")
 	}
+```
 
 SubmitWork, 远程矿工会调用这个方法提交挖矿的结果。 对结果进行验证之后提交到returnCh
-
+```go
 	// SubmitWork tries to inject a pow solution into the remote agent, returning
 	// whether the solution was accepted or not (not can be both a bad pow as well as
 	// any other error, like no work pending).
@@ -249,23 +259,24 @@ SubmitWork, 远程矿工会调用这个方法提交挖矿的结果。 对结果�
 	
 		return true
 	}
+```
 
 SubmitHashrate, 提交hash算力
-
+```go
 	func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {
 		a.hashrateMu.Lock()
 		defer a.hashrateMu.Unlock()
 	
 		a.hashrate[id] = hashrate{time.Now(), rate}
 	}
-
+```
 
 ## unconfirmed
 
 unconfirmed是一个数据结构，用来跟踪用户本地的挖矿信息的，比如挖出了一个块，那么等待足够的后续区块确认之后(5个)，再查看本地挖矿的区块是否包含在规范的区块链内部。
 
 数据结构
-	
+```go	
 	// headerRetriever is used by the unconfirmed block set to verify whether a previously
 	// mined block is part of the canonical chain or not.
 	// headerRetriever由未确认的块组使用，以验证先前挖掘的块是否是规范链的一部分。
@@ -293,7 +304,7 @@ unconfirmed是一个数据结构，用来跟踪用户本地的挖矿信息的，
 		blocks *ring.Ring      // Block infos to allow canonical chain cross checks // 区块信息，以允许规范链交叉检查
 		lock   sync.RWMutex    // Protects the fields from concurrent access
 	}
-
+	
 	// newUnconfirmedBlocks returns new data structure to track currently unconfirmed blocks.
 	func newUnconfirmedBlocks(chain headerRetriever, depth uint) *unconfirmedBlocks {
 		return &unconfirmedBlocks{
@@ -301,10 +312,11 @@ unconfirmed是一个数据结构，用来跟踪用户本地的挖矿信息的，
 			depth: depth,
 		}
 	}
+```
 
 插入跟踪区块, 当矿工挖到一个区块的时候调用， index是区块的高度， hash是区块的hash值。
 	
-	
+```go	
 	// Insert adds a new block to the set of unconfirmed ones.
 	func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
 		// If a new block was mined locally, shift out any old enough blocks
@@ -331,8 +343,10 @@ unconfirmed是一个数据结构，用来跟踪用户本地的挖矿信息的，
 		// Display a log for the user to notify of a new mined block unconfirmed
 		log.Info("🔨 mined potential block", "number", index, "hash", hash)
 	}
+```
+
 Shift方法会删除那些index超过传入的index-depth的区块，并检查他们是否在规范的区块链中。
-	
+```go	
 	// Shift drops all unconfirmed blocks from the set which exceed the unconfirmed sets depth
 	// allowance, checking them against the canonical chain for inclusion or staleness
 	// report.
@@ -372,6 +386,7 @@ Shift方法会删除那些index超过传入的index-depth的区块，并检查�
 			}
 		}
 	}
+```
 
 ## worker.go
 worker 内部包含了很多agent，可以包含之前提到的agent和remote_agent。 worker同时负责构建区块和对象。同时把任务提供给agent。
@@ -379,7 +394,7 @@ worker 内部包含了很多agent，可以包含之前提到的agent和remote_ag
 数据结构：
 
 Agent接口
-	
+```go	
 	// Agent can register themself with the worker
 	type Agent interface {
 		Work() chan<- *Work
@@ -388,9 +403,10 @@ Agent接口
 		Start()
 		GetHashRate() int64
 	}
+```
 
 Work结构，Work存储了工作者的当时的环境，并且持有所有的暂时的状态信息。
-
+```go
 	// Work is the workers current environment and holds
 	// all of the current state information
 	type Work struct {
@@ -416,8 +432,10 @@ Work结构，Work存储了工作者的当时的环境，并且持有所有的暂
 		Work  *Work
 		Block *types.Block
 	}
+```
 worker
-	
+
+```go	
 	// worker is the main object which takes care of applying messages to the new state
 	// 工作者是负责将消息应用到新状态的主要对象
 	type worker struct {
@@ -461,9 +479,10 @@ worker
 		mining int32
 		atWork int32
 	}
+```
 
 构造
-	
+```go	
 	func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
 		worker := &worker{
 			config:         config,
@@ -494,9 +513,10 @@ worker
 	
 		return worker
 	}
-
+```
 update
-	
+
+```go	
 	func (self *worker) update() {
 		defer self.txSub.Unsubscribe()
 		defer self.chainHeadSub.Unsubscribe()
@@ -540,10 +560,10 @@ update
 		}
 	}
 
-
+```
 commitNewWork 提交新的任务
 
-	
+```go
 	func (self *worker) commitNewWork() {
 		self.mu.Lock()
 		defer self.mu.Unlock()
@@ -658,9 +678,10 @@ commitNewWork 提交新的任务
 		}
 		self.push(work)
 	}
+```
 
 push方法，如果我们没有在挖矿，那么直接返回，否则把任务送给每一个agent
-	
+```go	
 	// push sends a new work task to currently live miner agents.
 	func (self *worker) push(work *Work) {
 		if atomic.LoadInt32(&self.mining) != 1 {
@@ -673,9 +694,10 @@ push方法，如果我们没有在挖矿，那么直接返回，否则把任务�
 			}
 		}
 	}
+```
 
 makeCurrent，未当前的周期创建一个新的环境。
-	
+```go	
 	// makeCurrent creates a new environment for the current cycle.
 	// 
 	func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error {
@@ -709,7 +731,7 @@ makeCurrent，未当前的周期创建一个新的环境。
 		return nil
 	}
 
-commitTransactions
+//commitTransactions
 	
 	func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) {
 		// 由于是打包新的区块中交易，所以将总 gasPool 初始化为 env.header.GasLimit
@@ -808,7 +830,7 @@ commitTransactions
 		}
 	}
 
-commitTransaction执行ApplyTransaction
+//commitTransaction执行ApplyTransaction
 	
 	func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
 		snap := env.state.Snapshot()
@@ -823,9 +845,9 @@ commitTransaction执行ApplyTransaction
 	
 		return nil, receipt.Logs
 	}
-
+​```
 wait函数用来接受挖矿的结果然后写入本地区块链，同时通过eth协议广播出去。
-	
+​```go
 	func (self *worker) wait() {
 		for {
 			mustCommitNewWork := true
@@ -882,6 +904,7 @@ wait函数用来接受挖矿的结果然后写入本地区块链，同时通过e
 			}
 		}
 	}
+```
 
 
 ## miner
@@ -889,7 +912,7 @@ miner用来对worker进行管理， 订阅外部事件，控制worker的启动�
 
 数据结构
 
-	
+```go
 	// Backend wraps all methods required for mining.
 	type Backend interface {
 		AccountManager() *accounts.Manager
@@ -912,11 +935,11 @@ miner用来对worker进行管理， 订阅外部事件，控制worker的启动�
 		canStart    int32 // can start indicates whether we can start the mining operation
 		shouldStart int32 // should start indicates whether we should start after sync
 	}
-
+```
 
 构造, 创建了一个CPU agent 启动了miner的update goroutine
+```go
 
-	
 	func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 		miner := &Miner{
 			eth:      eth,
@@ -930,9 +953,10 @@ miner用来对worker进行管理， 订阅外部事件，控制worker的启动�
 	
 		return miner
 	}
+```
 
 update订阅了downloader的事件， 注意这个goroutine是一个一次性的循环， 只要接收到一次downloader的downloader.DoneEvent或者 downloader.FailedEvent事件， 就会设置canStart为1. 并退出循环， 这是为了避免黑客恶意的 DOS攻击，让你不断的处于异常状态
-	
+```go	
 	// update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 	// It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 	// the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
@@ -964,9 +988,10 @@ update订阅了downloader的事件， 注意这个goroutine是一个一次性的
 			}
 		}
 	}
+```
 
 Start
-	
+```go	
 	func (self *Miner) Start(coinbase common.Address) {
 		atomic.StoreInt32(&self.shouldStart, 1)  // shouldStart 是是否应该启动
 		self.worker.setEtherbase(coinbase)	     
@@ -982,3 +1007,4 @@ Start
 		self.worker.start()  // 启动worker 开始挖矿
 		self.worker.commitNewWork()  //提交新的挖矿任务。
 	}
+```
