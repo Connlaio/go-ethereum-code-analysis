@@ -125,9 +125,9 @@ remote_agent 提供了一套RPC接口，可以实现远程矿工进行采矿的�
 			hashrate: make(map[common.Hash]hashrate),
 		}
 	}
-​```go
+```
 启动和停止
-​```go	
+```go	
 	func (a *RemoteAgent) Start() {
 		if !atomic.CompareAndSwapInt32(&a.running, 0, 1) {
 			return
