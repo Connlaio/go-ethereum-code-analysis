@@ -51,3 +51,4 @@ type Header struct {
 }
 ```
 
+可以看到一个区块头包含了父块hash值，叔块hash值，Coinbase结点账户地址，状态根，交易hash，接受者hash，日志，难度值，块编号，最低支付gas，花费的gas，时间戳，额外数据，混合hash，nonce值（8个byte).

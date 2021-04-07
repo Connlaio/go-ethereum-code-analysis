@@ -391,18 +391,21 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 		return ethash.shared.Seal(chain, block, stop)
 	}
 	// Create a runner and the multiple search threads it directs
+    // 创建一个runner以及它指挥的多重搜索线程
+
 	abort := make(chan struct{})
 	found := make(chan *types.Block)
 
-	ethash.lock.Lock()
+	ethash.lock.Lock()// 线程上锁，保证内存的缓存（包含挖矿字段）安全
 	threads := ethash.threads
 	if ethash.rand == nil {
+        // 获得种子
 		seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 		if err != nil {
 			ethash.lock.Unlock()
 			return nil, err
 		}
-		ethash.rand = rand.New(rand.NewSource(seed.Int64()))
+		ethash.rand = rand.New(rand.NewSource(seed.Int64()))// 执行成功，拿到合法种子seed，通过其获得rand对象，赋值。
 	}
 	ethash.lock.Unlock()
 	if threads == 0 {
@@ -411,16 +414,16 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 	if threads < 0 {
 		threads = 0 // Allows disabling local mining without extra logic around local/remote
 	}
-	var pend sync.WaitGroup
+	var pend sync.WaitGroup// 创建一个倒计时锁对象，go语法参照 http://www.cnblogs.com/Evsward/p/goPipeline.html#sync.waitgroup
 	for i := 0; i < threads; i++ {
 		pend.Add(1)
-		go func(id int, nonce uint64) {
+		go func(id int, nonce uint64) {// 核心代码通过闭包多线程技术来执行。
 			defer pend.Done()
-			ethash.mine(block, id, nonce, abort, found)
-		}(i, uint64(ethash.rand.Int63()))
+			ethash.mine(block, id, nonce, abort, found)// Seal核心工作
+		}(i, uint64(ethash.rand.Int63()))//闭包第二个参数表达式uint64(ethash.rand.Int63())通过上面准备好的rand函数随机数结果作为nonce实参传入方法体
 	}
 	// Wait until sealing is terminated or a nonce is found
-	var result *types.Block
+	var result *types.Block  // 定义一个区块对象result，用于接收操作结果并作为返回值返回上一层
 	select {
 	case <-stop:
 		// Outside abort, stop all miner threads
@@ -490,7 +493,7 @@ search:
 				// 查找到nonce值，更新区块头
 				header = types.CopyHeader(header)
 				header.Nonce = types.EncodeNonce(nonce)
-				header.MixDigest = common.BytesToHash(digest)
+				header.MixDigest = common.BytesToHash(digest)// 将字节数组转换为Hash对象【Hash是32位的根据任意输入数据的Keccak256哈希算法的返回值】
 
 				// 打包区块头并返回
 				select {
@@ -514,7 +517,7 @@ search:
 ```go
 func hashimotoFull(dataset []uint32, hash []byte, nonce uint64) ([]byte, []byte) {
 	lookup := func(index uint32) []uint32 {
-		offset := index * hashWords
+		offset := index * hashWords// hashWords是上面定义的常量值= 16
 		return dataset[offset : offset+hashWords]
 	}
 	return hashimoto(hash, nonce, uint64(len(dataset))*4, lookup)
@@ -523,32 +526,6 @@ func hashimotoFull(dataset []uint32, hash []byte, nonce uint64) ([]byte, []byte)
 **lookup** 函数：
 
 非线性查表方式进行的哈希函数。
-
-
-
-## hashimoLight()函数
-
-用于VerifySeal函数
-
-```go
-func hashimotoLight（size uint64, cache []uint32, hash []byte, nonce uint64） ([]byte, []byte) {  
-    lookup := func(index uint32) []uint32 {  
-        rawData := generateDatasetItem(cache, index, keccak512)  
-        data := make([]uint32, len(rawData)/4)  
-        for i := 0; i < len(data); i++ {  
-            data[i] = binary.LittleEndian.Uint32(rawData[i*4:])  
-        }  
-        return data  
-    }  
-    return hashimoto(hash, nonce, size, lookup)  
-}  
-```
-
-其中 **lookup** 函数 与 **hashimofull** 函数中使用的不同。需要注意。
-
-#### 
-
-
 
 hashimoto用于聚合数据以产生特定的后部的hash和nonce值。
 ![图片来源：https://blog.csdn.net/metal1/article/details/79682636](picture/pow_hashimoto.png)
@@ -566,36 +543,39 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 
 	// 将 header+nonce into 装换为64字节的seed
 	seed := make([]byte, 40)
-	copy(seed, hash)
-	binary.LittleEndian.PutUint64(seed[32:], nonce)
+	copy(seed, hash)// 将区块头的hash（上面提到了Hash对象是32字节大小）拷贝到seed中。
+	binary.LittleEndian.PutUint64(seed[32:], nonce) // 将nonce值填入seed的后（40-32=8）字节中去，（nonce本身就是uint64类型，是64位，对应8字节大小），正好把hash和nonce完整的填满了40字节的seed
 
-	seed = crypto.Keccak512(seed)
-	seedHead := binary.LittleEndian.Uint32(seed)
+	seed = crypto.Keccak512(seed// seed经历一遍Keccak512加密
+	seedHead := binary.LittleEndian.Uint32(seed)// 从seed中获取区块头
 
+     // 开始与重复seed的混合
 	// 将seed[]转化成以uint32为元素的数组mix[]
 	mix := make([]uint32, mixBytes/4)
+    // mixBytes常量= 128，mix的长度为32，元素为uint32，是32位，对应为4字节大小。所以mix总共大小为4*32=128字节大小
 	for i := 0; i < len(mix); i++ {
-		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])
+		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])// 共循环32次，前16和后16位的元素值相同
 	}
 	// 向mix[]数组中混入未知的数据
 	temp := make([]uint32, len(mix))
 
-	for i := 0; i < loopAccesses; i++ {
-		parent := fnv(uint32(i)^seedHead, mix[i%len(mix)]) % rows
+	for i := 0; i < loopAccesses; i++ {// loopAccesses常量 = 64，循环64次
+		parent := fnv(uint32(i)^seedHead, mix[i%len(mix)]) % rows   // mix[i%len(mix)]是循环依次调用mix的元素值
 		for j := uint32(0); j < mixBytes/hashBytes; j++ {
-			copy(temp[j*hashWords:], lookup(2*parent+j))
+			copy(temp[j*hashWords:], lookup(2*parent+j))// 通过用种子seed生成的mix数据进行FNV哈希操作以后的数值作为参数去查找源数据（太绕了）拷贝到temp中去。
 		}
-		fnvHash(mix, temp)
+		fnvHash(mix, temp) // 将mix中所有元素都与temp中对应位置的元素进行FNV hash运算
 	}
 	// 压缩成一个长度缩小成原长1/4的uint32数组
 	for i := 0; i < len(mix); i += 4 {
 		mix[i/4] = fnv(fnv(fnv(mix[i], mix[i+1]), mix[i+2]), mix[i+3])
 	}
+    // 最后有效数据只在前8个位置，后面的数据经过上面的循环混淆以后没有价值了，所以将mix的长度减到8，保留前8位有效数据。                            
 	mix = mix[:len(mix)/4]
 
-	digest := make([]byte, common.HashLength)
+	digest := make([]byte, common.HashLength)// common.HashLength=32，创建一个长度为32的字节数组digest
 	for i, val := range mix {
-		binary.LittleEndian.PutUint32(digest[i*4:], val)
+		binary.LittleEndian.PutUint32(digest[i*4:], val)// 再把长度为8的mix分散到32位的digest中去。
 	}
 	return digest, crypto.Keccak256(append(seed, digest...))
 }
@@ -604,7 +584,21 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 
 ## [以非线性表查找方式进行的哈希运算](https://blog.csdn.net/metal1/article/details/79682636#t7)
 
+#### FNV hash 算法
 
+```go
+func fnv(a, b uint32) uint32 {
+    return a*0x01000193 ^ b
+}
+ 
+func fnvHash(mix []uint32, data []uint32) {
+    for i := 0; i < len(mix); i++ {
+        mix[i] = mix[i]*0x01000193 ^ data[i]
+    }
+}
+```
+
+0x01000193是FNV hash算法的一个hash质数（Prime number，又叫素数，只能被1和其本身整除），哈希算法会基于一个常数来做散列操作。0x01000193是FNV针对32 bit数据的散列质数。
 
 #### VerifySeal函数实现分析
 
@@ -668,3 +662,12 @@ func hashimotoLight(size uint64, cache []uint32, hash []byte, nonce uint64) ([]b
 	return hashimoto(hash, nonce, size, lookup)
 }
 ```
+
+其中 **lookup** 函数 与 **hashimofull** 函数中使用的不同。需要注意。
+
+
+
+![ethash 算法的实现](./picture/ethash.png)
+
+
+

@@ -1008,3 +1008,7 @@ Start
 		self.worker.commitNewWork()  //提交新的挖矿任务。
 	}
 ```
+
+
+
+![流程](./picture/woker.png)

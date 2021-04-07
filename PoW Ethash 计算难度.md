@@ -20,3 +20,7 @@ func (ethash *Ethash) CalcDifficulty(chain consensus.ChainHeaderReader, time uin
 | time   | uint64                      |      | 当前块的时间                                                 |
 | parent | *types.Header               |      | 当前块的父节点                                               |
 
+
+
+
+
