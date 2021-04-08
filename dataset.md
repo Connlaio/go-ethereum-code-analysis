@@ -86,7 +86,11 @@ func (c *cache) generate(dir string, limit int, lock bool, test bool)
 
 `cache size` 主要*某个特定块编号的ethash验证缓存的大小* *， `epochLength` 为 30000，如果`epoch` 小于 2048，则从已知的`epoch`返回相应的`cache size`，否则重新计`epoch`.
 
-`cache`的大小是线性增长的，`size`的值等于(2^24^ + 2^17^ * epoch - 64)，用这个值除以 64 看结果是否是一个质数，如果不是，减去128 再重新计算，直到找到最大的质数为止。
+*size = cacheInitBytes + cacheGrowthBytes \* epoch - hashBytes*
+
+这里 $cacheInitBytes = 2^24^$ ，cacheGrowthBytes = 2^17^，hashBytes = 64，可见size的取值有多么巨大了。注意到cacheSize()中在对size赋值后还要不断调整，**保证最终size是个质数，**这是出于密码学的需要。
+
+`cache`的大小是线性增长的，`size`的值等于 $( 2^24^ + 2^17^ * epoch - 64)$，用这个值除以 64 看结果是否是一个质数，如果不是，减去128 再重新计算，直到找到最大的质数为止。
 
 ```go
 csize := cacheSize(d.epoch*epochLength + 1)
@@ -122,7 +126,7 @@ func calcCacheSize(epoch int) uint64 {
 dsize := datasetSize(d.epoch*epochLength + 1)
 
 func datasetSize(block uint64) uint64 {
-	epoch := int(block / epochLength)
+	epoch := int(block / epochLength) // epochLength = 30000
 	if epoch < maxEpoch {
 		return datasetSizes[epoch]
 	}
@@ -264,3 +268,7 @@ for i, val := range intMix {
 ```
 
 `generateCache`和`generateDataset`是实现`Dagger`算法的核心函数，到此整个生成哈希数据集的的过程结束。
+
+#### 内存映射 
+
+由于Ethash(PoW)算法中用到的随机数据集cache{}和dataset{}过于庞大，将其以文件形式存储在磁盘上就显得很有必要。同样由于这些文件过于庞大，使用时又需要一次性整体读入内存(因为对其的使用是随意截取其中的一段数据)，**使用内存映射可以大大减轻I/O负担**。cache{}和dataset{}结构体中，均有一个mmap对象用以操作内存映射，以及一个系统文件对象dump，对应于打开的磁盘文件。
