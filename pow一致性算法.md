@@ -376,6 +376,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 在ModeFake和ModeFullFake模式下，快速返回，并且直接将nonce值取0。
 在shared PoW模式下，使用shared的Seal函数。
 开启threads个goroutine进行挖矿(查找符合条件的nonce值)。
+
 ```go
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
@@ -445,10 +446,10 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 mine是真正的查找nonce值的函数，它不断遍历查找nonce值，并计算PoW值与目标值进行比较。
 其原理可以简述为下：
 $$
-RAND(h, n)  <=  \frac{M} {d} 
+RAND(h, n)  <=  \frac{M} {d}
 $$
 
-这里M表示一个极大的数，这里是 2^256-1；d表示Header成员Difficulty。RAND()是一个概念函数，它代表了一系列复杂的运算，并最终产生一个类似随机的数。这个函数包括两个基本入参：h是Header的哈希值(Header.HashNoNonce())，n表示Header成员Nonce。整个关系式可以大致理解为，在最大不超过M的范围内，以某个方式试图找到一个数，如果这个数符合条件(<=M/d)，那么就认为Seal()成功。
+这里M表示一个极大的数，这里是 2^256^-1；d表示Header成员Difficulty。RAND()是一个概念函数，它代表了一系列复杂的运算，并最终产生一个类似随机的数。这个函数包括两个基本入参：h是Header的哈希值(Header.HashNoNonce())，n表示Header成员Nonce。整个关系式可以大致理解为，在最大不超过M的范围内，以某个方式试图找到一个数，如果这个数符合条件(<=M/d)，那么就认为Seal()成功。
 由上面的公式可以得知，M恒定，d越大则可取范围越小。所以当难度值增加时，挖出区块的难度也在增加。
 
 ```go
@@ -513,7 +514,7 @@ search:
 	runtime.KeepAlive(dataset)
 }
 ```
-上诉函数调用了hashimotoFull函数用来计算PoW的值。
+上述函数调用了hashimotoFull函数用来计算PoW的值。
 ```go
 func hashimotoFull(dataset []uint32, hash []byte, nonce uint64) ([]byte, []byte) {
 	lookup := func(index uint32) []uint32 {

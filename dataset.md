@@ -1,15 +1,39 @@
 # DataSet
 
-
-
-
-
 DAG和epoch
 
 1、上面的dataset就来自内存中的一组数据或者硬盘里的DAG。
 2、DAG是有向无环图，以太坊的DAG是基于区块高度生成的。
 3、以太坊中每3万个块会生成一代DAG，这一代就成称为一个epoch。
 4、挖矿的时候需要从DAG中随机选取dataset，所以挖矿工作只能在现世DAG创建以后才能开始。
+
+[官方介绍](https://eth.wiki/concepts/ethash/dag)
+
+> # [¶](https://eth.wiki/concepts/ethash/dag#ethash-dag)Ethash DAG
+>
+> Ethash is the PoW system. It requires a ~1GB dataset known as the DAG (see [Dagger Hashimoto](https://eth.wiki/concepts/ethash/dag/Dagger-Hashimoto)). This typically takes hours to generate so we tend to memorise it. Clients wishing to store the DAG in a cache should conform to this spec in order to share the cache with other clients:
+>
+> ## Location
+>
+> The DAG should be stored in a 1GB dump (for the initial epoch, anyway), in a file:
+>
+> - Mac/Linux: `$(HOME)/.ethash/full-R<REVISION>-<SEEDHASH>`
+> - Windows: `$(HOME)/Appdata/Local/Ethash/full-R<REVISION>-<SEEDHASH>`
+>
+> Where:
+>
+> - `<REVISION>` is a decimal integer, given as the C-constant `REVISION` in `libethash/ethash.h`;
+> - `<SEEDHASH>` is 16 lowercase hex digits specifying the first 8 bytes of the epoch’s seed hash.
+>
+> There may be many such DAGs stored in this directory; it is up to the client and/or user to remove out of date ones.
+>
+> ## Format
+>
+> Each file should begin with an 8-byte magic number, `0xfee1deadbaddcafe`, written in little-endian format (i.e., bytes `fe ca dd ba ad de e1 fe`).
+>
+> The Ethash algorithm expects the DAG as a two-dimensional array of uint32s (4-byte unsigned ints), with dimension (n × 16) where n is a large number. (n starts at 16777186 and grows from there.) Following the magic number, the rows of the DAG should be written sequentially into the file, with no delimiter between rows and each unint32 encoded in little-endian format.
+
+
 
 `Dagger`算法是用来生成数据集`Dataset`的，核心的部分就是`Dataset`的生成方式和组织结构。
 
@@ -27,9 +51,36 @@ DAG和epoch
 
 ## 生成过程
 
+### 常量定义
+
+```go
+const (
+	datasetInitBytes   = 1 << 30 // Bytes in dataset at genesis
+	datasetGrowthBytes = 1 << 23 // Dataset growth per epoch
+	cacheInitBytes     = 1 << 24 // Bytes in cache at genesis
+	cacheGrowthBytes   = 1 << 17 // Cache growth per epoch
+	epochLength        = 30000   // Blocks per epoch
+	mixBytes           = 128     // Width of mix
+	hashBytes          = 64      // Hash length in bytes
+	hashWords          = 16      // Number of 32 bit ints in a hash
+	datasetParents     = 256     // Number of parents of each dataset element
+	cacheRounds        = 3       // Number of rounds in cache production
+	loopAccesses       = 64      // Number of accesses in hashimoto loop
+)
+
+```
+
+
+
 ### 生成哈希数据集
 
 `generate`函数位于`ethash.go`文件中，主要是为了生成`dataset`,其中包扩以下内容。
+
+```go
+func (c *cache) generate(dir string, limit int, lock bool, test bool)
+```
+
+
 
 #### 生成cache size
 

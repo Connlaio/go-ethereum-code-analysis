@@ -1,3 +1,7 @@
+# genesis
+
+
+
 genesis 是创世区块的意思. 一个区块链就是从同一个创世区块开始,通过规则形成的.不同的网络有不同的创世区块, 主网络和测试网路的创世区块是不同的.
 
 这个模块根据传入的genesis的初始值和database，来设置genesis的状态，如果不存在创世区块，那么在database里面创建它。
@@ -46,7 +50,7 @@ SetupGenesisBlock,
 	// error is a *params.ConfigCompatError and the new, unwritten config is returned.
 	// 如果存储的区块链配置不兼容那么会被更新(). 为了避免发生冲突,会返回一个错误,并且新的配置和原来的配置会返回.
 	// The returned chain configuration is never nil.
-
+	
 	// genesis 如果是 testnet dev 或者是 rinkeby 模式， 那么不为nil。如果是mainnet或者是私有链接。那么为空
 	func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 		if genesis != nil && genesis.Config == nil {
