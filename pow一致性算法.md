@@ -457,7 +457,7 @@ func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan s
 	// 从区块头中获取一些数据
 	var (
 		header  = block.Header()
-		hash    = header.HashNoNonce().Bytes()
+		hash    = ethash.SealHash(header).Bytes()
 		// target 即查找的PoW的上限 target = maxUint256/Difficulty
 		// 其中maxUint256 = 2^256-1  Difficulty即难度值
 		target  = new(big.Int).Div(maxUint256, header.Difficulty)
@@ -547,7 +547,7 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	copy(seed, hash)// 将区块头的hash（上面提到了Hash对象是32字节大小）拷贝到seed中。
 	binary.LittleEndian.PutUint64(seed[32:], nonce) // 将nonce值填入seed的后（40-32=8）字节中去，（nonce本身就是uint64类型，是64位，对应8字节大小），正好把hash和nonce完整的填满了40字节的seed
 
-	seed = crypto.Keccak512(seed// seed经历一遍Keccak512加密
+    seed = crypto.Keccak512(seed)// seed经历一遍Keccak512加密
 	seedHead := binary.LittleEndian.Uint32(seed)// 从seed中获取区块头
 
      // 开始与重复seed的混合

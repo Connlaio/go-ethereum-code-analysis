@@ -86,11 +86,11 @@ func (c *cache) generate(dir string, limit int, lock bool, test bool)
 
 `cache size` 主要*某个特定块编号的ethash验证缓存的大小* *， `epochLength` 为 30000，如果`epoch` 小于 2048，则从已知的`epoch`返回相应的`cache size`，否则重新计`epoch`.
 
-*size = cacheInitBytes + cacheGrowthBytes \* epoch - hashBytes*
+$$size = cacheInitBytes + cacheGrowthBytes * epoch - hashBytes$$
 
-这里 $cacheInitBytes = 2^24^$ ，cacheGrowthBytes = 2^17^，hashBytes = 64，可见size的取值有多么巨大了。注意到cacheSize()中在对size赋值后还要不断调整，**保证最终size是个质数，**这是出于密码学的需要。
+这里 $cacheInitBytes = 2^{24}$ ，$cacheGrowthBytes = 2^{17}$，$hashBytes = 64$，可见size的取值有多么巨大了。注意到cacheSize()中在对size赋值后还要不断调整，**保证最终size是个质数，**这是出于密码学的需要。
 
-`cache`的大小是线性增长的，`size`的值等于 $( 2^24^ + 2^17^ * epoch - 64)$，用这个值除以 64 看结果是否是一个质数，如果不是，减去128 再重新计算，直到找到最大的质数为止。
+`cache`的大小是线性增长的，`size`的值等于 $( 2^{24} + 2^{17} * epoch - 64)$，用这个值除以 64 看结果是否是一个质数，如果不是，减去128 再重新计算，直到找到最大的质数为止。
 
 ```go
 csize := cacheSize(d.epoch*epochLength + 1)
@@ -100,8 +100,8 @@ csize := cacheSize(d.epoch*epochLength + 1)
 
 ```go
 func cacheSize(block uint64) uint64 {
-	epoch := int(block / epochLength)
-	if epoch < maxEpoch {
+	epoch := int(block / epochLength) ///  epochLength = 30000
+	if epoch < maxEpoch {  // maxEpoch = 2048
 		return cacheSizes[epoch]
 	}
 	return calcCacheSize(epoch)
@@ -134,6 +134,27 @@ func datasetSize(block uint64) uint64 {
 }
 ```
 
+dataset size的大小计算和cache size 类似
+
+$$ size = datasetInitBytes + datasetGrowthBytes*epoch - mixBytes $$
+
+其中 `datasetInitBytes`  大小为 $2^{30}$, `datasetGrowthBytes` 大小为$2^{23}$，`mixBytes`大小为128.
+
+所以 $size = 2^{30} + 2^{23}*epoch - 128$。 如果size 不是质数，则循环减去 256，直到 size 是 质数为止。
+
+```go
+func calcDatasetSize(epoch int) uint64 {
+	size := datasetInitBytes + datasetGrowthBytes*uint64(epoch) - mixBytes
+	for !new(big.Int).SetUint64(size / mixBytes).ProbablyPrime(1) { // Always accurate for n < 2^64
+		size -= 2 * mixBytes
+	}
+	return size
+}
+
+```
+
+
+
 #### 生成 seed 种子
 
 seedHash是用于生成验证缓存和挖掘数据集的种子。*长度为 32。
@@ -147,7 +168,7 @@ func seedHash(block uint64) []byte {
 		return seed
 	}
 	keccak256 := makeHasher(sha3.NewLegacyKeccak256())
-	for i := 0; i < int(block/epochLength); i++ {
+	for i := 0; i < int(block/epochLength); i++ { // 循环hash
 		keccak256(seed, seed)
 	}
 	return seed

@@ -74,34 +74,38 @@ RLP的源码不是很多， 主要分了三个文件
 #### 如何根据类型找到对应的编码器和解码器 typecache.go
 在C++或者Java等支持重载的语言中， 可以通过不同的类型重载同一个函数名称来实现方法针对不同类型的分派,比如， 也可以通过泛型来实现函数的分派。
 	
-	string encode(int);
-	string encode(long);
-	string encode(struct test*)
+```c++
+string encode(int);
+string encode(long);
+string encode(struct test*)
+```
 
 但是GO语言本身不支持重载， 也没有泛型，所以函数的分派就需要自己实现了。 typecache.go主要是实现这个目的， 通过自身的类型来快速的找到自己的编码器函数和解码器函数。
 
 我们首先看看核心数据结构
 
-	var (
-		typeCacheMutex sync.RWMutex                  //读写锁，用来在多线程的时候保护typeCache这个Map
-		typeCache      = make(map[typekey]*typeinfo) //核心数据结构，保存了类型->编解码器函数
-	)
-	type typeinfo struct { //存储了编码器和解码器函数
-		decoder
-		writer
-	}
-	type typekey struct {
-		reflect.Type
-		// the key must include the struct tags because they
-		// might generate a different decoder.
-		tags
-	}
+```go
+var (
+	typeCacheMutex sync.RWMutex                  //读写锁，用来在多线程的时候保护typeCache这个Map
+	typeCache      = make(map[typekey]*typeinfo) //核心数据结构，保存了类型->编解码器函数
+)
+type typeinfo struct { //存储了编码器和解码器函数
+	decoder
+	writer
+}
+type typekey struct {
+	reflect.Type
+	// the key must include the struct tags because they
+	// might generate a different decoder.
+	tags
+}
+```
 
 可以看到核心数据结构就是typeCache这个Map， Map的key是类型，value是对应的编码和解码器。
 
 下面是用户如何获取编码器和解码器的函数
 
-	
+
 	func cachedTypeInfo(typ reflect.Type, tags tags) (*typeinfo, error) {
 		typeCacheMutex.RLock()		//加读锁来保护，
 		info := typeCache[typekey{typ, tags}]
@@ -414,7 +418,7 @@ encbuf是encode buffer的简写(我猜的)。encbuf出现在Encode方法，和�
 		}
 		return err
 	}
-
+	
 	func makeDecoder(typ reflect.Type, tags tags) (dec decoder, err error) {
 		kind := typ.Kind()
 		switch {
