@@ -140,7 +140,7 @@ $$ size = datasetInitBytes + datasetGrowthBytes*epoch - mixBytes $$
 
 其中 `datasetInitBytes`  大小为 $2^{30}$, `datasetGrowthBytes` 大小为$2^{23}$，`mixBytes`大小为128.
 
-所以 $size = 2^{30} + 2^{23}*epoch - 128$。 如果size 不是质数，则循环减去 256，直到 size 是 质数为止。
+所以 $size = 2^{30} + 2^{23}*epoch - 128$。 如果`size` 不是质数，则循环减去 256，直到 `size` 是 质数为止。
 
 ```go
 func calcDatasetSize(epoch int) uint64 {
@@ -178,7 +178,7 @@ func seedHash(block uint64) []byte {
 #### 生成cache
 
 ```go
-generateCache(cache, d.epoch, seed)
+func generateCache(cache, d.epoch, seed)
 ```
 
 接下来分析`generateCache`的关键代码：
