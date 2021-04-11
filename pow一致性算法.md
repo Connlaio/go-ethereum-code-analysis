@@ -545,17 +545,17 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	// 将 header+nonce into 装换为64字节的seed
 	seed := make([]byte, 40)
 	copy(seed, hash)// 将区块头的hash（上面提到了Hash对象是32字节大小）拷贝到seed中。
-	binary.LittleEndian.PutUint64(seed[32:], nonce) // 将nonce值填入seed的后（40-32=8）字节中去，（nonce本身就是uint64类型，是64位，对应8字节大小），正好把hash和nonce完整的填满了40字节的seed
+	binary.LittleEndian.PutUint64(seed[32:], nonce) // 将nonce值填入seed的后（40-32=8）字节中去，（nonce本身就是uint64类型，是64位，对应8字节大小），正好把hash和nonce完整的填满了40字节的seed,注意，填充的nonce值，是小端字节序。
 
-    seed = crypto.Keccak512(seed)// seed经历一遍Keccak512加密
-	seedHead := binary.LittleEndian.Uint32(seed)// 从seed中获取区块头
+  seed = crypto.Keccak512(seed)// seed经历一遍Keccak512加密
+	seedHead := binary.LittleEndian.Uint32(seed)// 从seed中获取区块头,前32bit的小端字节序
 
      // 开始与重复seed的混合
 	// 将seed[]转化成以uint32为元素的数组mix[]
 	mix := make([]uint32, mixBytes/4)
     // mixBytes常量= 128，mix的长度为32，元素为uint32，是32位，对应为4字节大小。所以mix总共大小为4*32=128字节大小
 	for i := 0; i < len(mix); i++ {
-		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])// 共循环32次，前16和后16位的元素值相同
+		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])// 共循环32次，前16和后16位的元素值相同,注意，此时mix中的值为小端字节序，为当前seed切片的前4个字节。
 	}
 	// 向mix[]数组中混入未知的数据
 	temp := make([]uint32, len(mix))
