@@ -33,7 +33,7 @@ RLP_L2 [1111 0111, 1111 1111] 对于更长的内容，则在剩余的空间内�
 
 请复制下列代码至具有文本折叠功能的编辑器中进行代码查阅（推荐 Notepad++ 将所有的 github 引用格式下的函数进行适当折叠，便于从全局进行逻辑理解）
 
-```code
+```go
 [/rlp/encode_test.go#TestEncode](https://github.com/ethereum/go-ethereum/blob/master/rlp/encode_test.go#L272)
 func TestEncode(t *testing.T) {
 	runEncTests(t, func(val interface{}) ([]byte, error) {
@@ -329,7 +329,7 @@ err := Encode(b, val) 调用的 Encode 作为编码的入口函数，具体实�
 		w.lheads = append(w.lheads, lh)
 		return lh // 加入头部序列后返回给 listEnd 使用
 	}
-
+	
 	func (w *encbuf) listEnd(lh *listhead) {
 		lh.size = w.size() - lh.offset - lh.size // 新的头部size等于新增加的编码长度减去？TODO
 		if lh.size < 56 {
